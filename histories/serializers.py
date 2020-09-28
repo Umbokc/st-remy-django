@@ -172,26 +172,22 @@ class UserCreateSerializer(BaseUserRegistrationSerializer):
 
   class Meta(BaseUserRegistrationSerializer.Meta):
     model = User
-    fields = tuple(User.REQUIRED_FIELDS) + (
-      settings.LOGIN_FIELD,
-      settings.USER_ID_FIELD,
+    fields = (
+      'username',
+      'email',
       "password",
       'profile'
     )
 
   def save(self, **kwargs):
-    print('helloooooooooooooooooooooo')
-    print(self.validated_data)
     profile = self.validated_data.get('profile')
     instance = super().save(**kwargs)
     profile.user = instance
     profile.save()
-    print(profile)
     # Profile.objects.update_or_create(user=instance, defaults=profile)
     return instance
 
   def validate(self, attrs):
-    print(attrs)
     new_attrs = {}
 
     for key in attrs:
@@ -201,5 +197,4 @@ class UserCreateSerializer(BaseUserRegistrationSerializer):
         new_attrs[key] = attrs[key]
 
     new_attrs = OrderedDict(new_attrs)
-    print(new_attrs)
     return super().validate(new_attrs)

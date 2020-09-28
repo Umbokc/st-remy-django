@@ -16,10 +16,24 @@ from . import service
 
 class IsOwner(permissions.BasePermission):
   def has_object_permission(self, request, view, obj):
+    print('request')
+
     if request.method in permissions.SAFE_METHODS:
       return True
 
     return obj.user == request.user
+
+class MyHistoryViewSet(viewsets.ModelViewSet):
+  serializer_class = HistoryCreateSerializer
+  permission_classes = [permissions.IsAuthenticated]
+
+  @swagger_auto_schema(operation_description="Вывод списка историй текущего пользователя")
+  def list(self, request):
+    return super().list(request)
+
+  def get_queryset(self):
+    histories = History.objects.filter(user=self.request.user).order_by('-created_at')
+    return histories
 
 class HistoryViewSet(viewsets.ModelViewSet):
   """Класс для работы с историями"""
