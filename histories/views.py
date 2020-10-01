@@ -24,7 +24,7 @@ class IsOwner(permissions.BasePermission):
     return obj.user == request.user
 
 class MyHistoryViewSet(viewsets.ModelViewSet):
-  serializer_class = HistoryCreateSerializer
+  serializer_class = HistoryDetailSerializer
   permission_classes = [permissions.IsAuthenticated]
 
   @swagger_auto_schema(operation_description="Вывод списка историй текущего пользователя")

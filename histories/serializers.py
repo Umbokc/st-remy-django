@@ -27,7 +27,7 @@ class HistoryDetailSerializer(serializers.ModelSerializer):
 
   class Meta:
     model = History
-    fields = ['id', 'desc', 'desc_status', 'desc_comment', 'status', 'orientation', 'week', 'user', 'images']
+    fields = ['id', 'desc', 'desc_status', 'desc_comment', 'status', 'orientation', 'week', 'user', 'images', 'draft']
 
   def get_images_related(self, instance):
     images = instance.images.order_by('date')[0:2]
@@ -90,8 +90,11 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
 
     if instance.desc_status == 'edit':
       instance.desc = validated_data.get('desc')
+
+    if instance.draft:
       instance.draft = bool(validated_data.get('draft'))
-      instance.save()
+
+    instance.save()
 
     images_data = self.context.get('view').request.FILES.getlist('images')[0:2]
 
