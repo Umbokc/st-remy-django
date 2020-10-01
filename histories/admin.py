@@ -3,13 +3,13 @@ from django.utils.safestring import mark_safe
 
 from .models import History, Image, Leaderboard, Voice, Profile
 
-
 @admin.register(Image)
 class ImageAdmin(admin.ModelAdmin):
   save_on_top = True
   save_as = True
   list_display = ("id", "history", "get_image", "date", "status", "comment")
   readonly_fields = ("get_image",)
+  exclude = ('history',)
 
   def get_image(self, obj):
       return mark_safe(f'<img src={obj.image.url} width="100" height="110"')
@@ -36,14 +36,26 @@ class HistoryAdmin(admin.ModelAdmin):
   list_display = ("id", "desc", "get_user", "status", "get_voices", "get_images")
   list_display_links = ("id", "desc", "get_images")
   list_editable = ("status",)
+  exclude = ('img_before','img_after',)
 
   def get_user(self, obj):
     return obj.user.username
 
   def get_images(self, obj):
     images = obj.images.all()
-    if images:
-      return mark_safe(f'<img src={images[0].image.url} width="100" height="110"><img src={images[1].image.url} width="100" height="110">')
+
+    img_before = obj.img_before.image.url if obj.img_before else ''
+    img_after = obj.img_after.image.url if obj.img_after else ''
+    html = ''
+
+    if img_before:
+      html += f'<img src={img_before} width="100" height="110">'
+    if img_after:
+      html += f'<img src={img_after} width="100" height="110">'
+
+    if html != '':
+      return mark_safe(html)
+
     return 'Отсутствуют'
 
   def get_voices(self, obj):

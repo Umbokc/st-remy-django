@@ -22,6 +22,22 @@ STATUS_ITEMS = STATUS + (
   ('edit', 'Редактируется'),
 )
 
+class Image(TimeStampMixin):
+  """Изображение"""
+
+  image = models.ImageField("Изображение", upload_to="images/")
+  date = models.PositiveSmallIntegerField("Дата фотографии", default=2019)
+  status = models.CharField("Статус изображения", max_length=10, choices=STATUS_ITEMS, default='mod')
+  comment = models.TextField("Комментарий", null=True, blank=True)
+  history = models.ForeignKey('History', verbose_name="История", on_delete=models.CASCADE, related_name="images", null=True, blank=True)
+
+  def __str__(self):
+    return f'{self.id}'
+
+  class Meta:
+    verbose_name = "Изображение"
+    verbose_name_plural = "Изображения"
+
 class History(TimeStampMixin):
   """История"""
 
@@ -42,6 +58,20 @@ class History(TimeStampMixin):
   week = models.DateField("Неделя")
   admin_viewed = models.BooleanField("Просмотренно админом", default=False)
   draft = models.BooleanField("Черновик", default=False)
+
+  img_before = models.OneToOneField(
+    Image,
+    on_delete=models.SET_NULL,
+    related_name='img_before',
+    null=True, blank=True
+  )
+
+  img_after = models.OneToOneField(
+    Image,
+    on_delete=models.SET_NULL,
+    related_name='img_after',
+    null=True, blank=True
+  )
 
   def get_orientation(self):
     for x in self.ORIENTATION:
@@ -64,22 +94,6 @@ class History(TimeStampMixin):
   class Meta:
     verbose_name = "История"
     verbose_name_plural = "Истории"
-
-class Image(TimeStampMixin):
-  """Изображение"""
-
-  image = models.ImageField("Изображение", upload_to="images/")
-  date = models.PositiveSmallIntegerField("Дата фотографии", default=2019)
-  status = models.CharField("Статус изображения", max_length=10, choices=STATUS_ITEMS, default='mod')
-  comment = models.TextField("Комментарий", null=True, blank=True)
-  history = models.ForeignKey(History, verbose_name="История", on_delete=models.CASCADE, related_name="images")
-
-  def __str__(self):
-    return f'{self.id}'
-
-  class Meta:
-    verbose_name = "Изображение"
-    verbose_name_plural = "Изображения"
 
 class Leaderboard(TimeStampMixin):
   """Список победителей"""

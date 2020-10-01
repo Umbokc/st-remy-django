@@ -8,6 +8,7 @@ from drf_yasg.utils import swagger_auto_schema
 from .models import History, Image, Leaderboard
 from .serializers import (
   HistoryDetailSerializer,
+  HistoryDetailSerializerAuth,
   WinnerListSerializer,
   HistoryCreateSerializer,
   CreateVoiceSerializer,
@@ -24,7 +25,7 @@ class IsOwner(permissions.BasePermission):
     return obj.user == request.user
 
 class MyHistoryViewSet(viewsets.ModelViewSet):
-  serializer_class = HistoryDetailSerializer
+  serializer_class = HistoryDetailSerializerAuth
   permission_classes = [permissions.IsAuthenticated]
 
   @swagger_auto_schema(operation_description="Вывод списка историй текущего пользователя")
@@ -59,19 +60,32 @@ class HistoryViewSet(viewsets.ModelViewSet):
     serializer = self.get_serializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     instance = self.perform_create(serializer)
-    instance_serializer = HistoryDetailSerializer(instance)
+    instance_serializer = HistoryDetailSerializerAuth(instance)
     return Response(instance_serializer.data)
 
   @swagger_auto_schema(operation_description="Обновление истории истории", responses={200: HistoryDetailSerializer()})
-  def update(self, request, *args, **kwargs):
-    return self.create(request, *args, **kwargs)
+  def update(self, request, pk, *args, **kwargs):
+    instance = self.get_object()
+    serializer = self.get_serializer(instance, data=request.data)
+    serializer.is_valid(raise_exception=True)
+    instance = self.perform_update(serializer)
+    print(instance)
+
+    instance_serializer = HistoryDetailSerializerAuth(instance)
+    return Response(instance_serializer.data)
 
   def get_queryset(self):
-    histories = History.objects.filter(draft=False, status='pub').order_by('-created_at')
+    if self.action in ['list', 'retrieve']:
+      histories = History.objects.filter(draft=False, status='pub').order_by('-created_at')
+    elif self.action in ['update']:
+      histories = History.objects.filter(user=self.request.user).order_by('-created_at')
     return histories
 
   def perform_create(self, serializer):
     return serializer.save(user=self.request.user)
+
+  def perform_update(self, serializer):
+    return serializer.save()
 
   def get_serializer_class(self):
     if self.action in ['list', 'retrieve']:

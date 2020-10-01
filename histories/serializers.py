@@ -13,28 +13,62 @@ from .service import get_last_day_week
 
 User = get_user_model()
 
+class PrivateField(serializers.ReadOnlyField):
+
+  def current_user(self):
+    request = self.context.get('request', None)
+    if request:
+      return request.user
+    return None
+
+  def get_attribute(self, instance):
+    curr_user = self.current_user()
+    if curr_user:
+      obj_user = None
+      if isinstance(instance, Image):
+        obj_user = instance.history.user
+      else:
+        obj_user = instance.user
+
+      if obj_user == curr_user:
+        return super(PrivateField, self).get_attribute(instance)
+
+    return None
+
 class ImageDetailSerializer(serializers.ModelSerializer):
   """Информация о изображении"""
-
   class Meta:
     model = Image
-    fields = ['id', 'image', 'date', 'status', 'comment']
+    fields = ['image', 'date']
+
+class ImageDetailSerializerAuth(ImageDetailSerializer):
+  """Информация о изображении"""
+  class Meta:
+    model = Image
+    fields = ImageDetailSerializer.Meta.fields + ['status', 'comment']
 
 class HistoryDetailSerializer(serializers.ModelSerializer):
   """Полная информация о истории"""
-  images = serializers.SerializerMethodField(method_name='get_images_related')
+  img_before = ImageDetailSerializer()
+  img_after = ImageDetailSerializer()
   user = serializers.SerializerMethodField(method_name='get_user')
 
   class Meta:
     model = History
-    fields = ['id', 'desc', 'desc_status', 'desc_comment', 'status', 'orientation', 'week', 'user', 'images', 'draft']
-
-  def get_images_related(self, instance):
-    images = instance.images.order_by('date')[0:2]
-    return ImageDetailSerializer(images, many=True).data
+    fields = [
+      'id', 'desc', 'orientation', 'week', 'user', 'img_before', 'img_after',
+    ]
 
   def get_user(self, obj):
     return obj.user.profile.get_full_name()
+
+class HistoryDetailSerializerAuth(HistoryDetailSerializer):
+  """Полная информация о истории"""
+  img_before = ImageDetailSerializerAuth()
+  img_after = ImageDetailSerializerAuth()
+  class Meta:
+    model = History
+    fields = HistoryDetailSerializer.Meta.fields + ['desc_status', 'desc_comment', 'status', 'draft']
 
 class WinnerListSerializer(serializers.ModelSerializer):
   """Список победителей"""
@@ -45,6 +79,7 @@ class WinnerListSerializer(serializers.ModelSerializer):
     model = Leaderboard
     fields = ['history', 'week', 'main']
 
+
 class ImageCreateSerializer(serializers.ModelSerializer):
   """Добавление изображений"""
 
@@ -54,20 +89,29 @@ class ImageCreateSerializer(serializers.ModelSerializer):
 
 class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
   """Полная информация о истории"""
-  images = ImageCreateSerializer(source='image_set', many=True, read_only=True)
-  img_index = serializers.IntegerField(read_only=True)
+  # images = ImageCreateSerializer(source='image_set', many=True, read_only=True)
+  img_before = ImageCreateSerializer(source='image_set_before', read_only=True)
+  img_after = ImageCreateSerializer(source='image_set_after', read_only=True)
+  # img_index = serializers.IntegerField(read_only=True)
 
   class Meta:
     model = History
-    fields = ['desc', 'draft', 'images', 'img_index']
+    fields = (
+      'desc',
+      'draft',
+      'img_before',
+      'img_after',
+    )
 
   def current_user(self):
     request = self.context.get('request', None)
     if request:
       return request.user
+    return None
 
   def create(self, validated_data):
-    years = self.context.get('view').request.POST.getlist('years')
+
+    print('create')
 
     history = History.objects.create(
       desc=validated_data.get('desc'),
@@ -76,17 +120,11 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
       week=get_last_day_week()
     )
 
-    images_data = self.context.get('view').request.FILES.getlist('images')[0:2]
-
-    for i,image_data in enumerate(images_data):
-      year = years[i] if i < len(years) else 2000
-      Image.objects.create(history=history, image=image_data, date=year)
+    self.save_images(history)
 
     return history
 
   def update(self, instance, validated_data):
-
-    years = self.context.get('view').request.POST.getlist('years')
 
     if instance.desc_status == 'edit':
       instance.desc = validated_data.get('desc')
@@ -96,33 +134,42 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
 
     instance.save()
 
-    images_data = self.context.get('view').request.FILES.getlist('images')[0:2]
-
-    if len(images_data) == 2:
-      img_to_del = Image.objects.filter(history=instance, status='edit')
-      if len(img_to_del) == 2:
-        img_to_del.delete()
-
-        for i,image_data in enumerate(images_data):
-          year = years[i] if i < len(years) else 2000
-          Image.objects.create(history=instance, image=image_data, date=year)
-
-    elif len(images_data) == 1:
-      imgs = Image.objects.all().filter(history=instance).order_by('date')
-      img_index = int(self.context.get('view').request.POST.get('img_index', -1))
-      for i, img in enumerate(imgs):
-
-        if img.status != 'edit':
-          continue
-
-        img.date=years[i]
-
-        if img_index != -1 and i == img_index:
-          img.image=images_data[0]
-
-        img.save()
+    self.save_images(instance)
 
     return instance
+
+  def save_images(self, history):
+
+    post_data = self.context.get('view').request.POST
+    files = self.context.get('view').request.FILES
+
+    year_before = post_data.get('yearBefore')
+    year_after = post_data.get('yearAfter')
+
+    img_before = files.get('imageBefore')
+    img_after = files.get('imageAfter')
+
+    if img_before:
+      if history.img_before:
+        history.img_before.delete()
+      history.img_before = Image.objects.create(image=img_before, history=history)
+
+    if year_before and history.img_before:
+      history.img_before.date = year_before
+      history.img_before.save()
+
+    if img_after:
+      if history.img_after:
+        history.img_after.delete()
+      history.img_after = Image.objects.create(image=img_after, history=history)
+
+    if year_after and history.img_after:
+      history.img_after.date = year_after
+      history.img_after.save()
+
+    history.save()
+    return history
+
 
 class CreateVoiceSerializer(serializers.ModelSerializer):
   """Добавление голоса к истории пользователем"""
