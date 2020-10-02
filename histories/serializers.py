@@ -9,7 +9,7 @@ from djoser.conf import settings
 from rest_framework import serializers
 
 from .models import History, Image, Leaderboard, Voice, Profile
-from .service import get_last_day_week
+from .service import get_last_day_week, content_file_name
 
 User = get_user_model()
 
@@ -37,9 +37,17 @@ class PrivateField(serializers.ReadOnlyField):
 
 class ImageDetailSerializer(serializers.ModelSerializer):
   """Информация о изображении"""
+
+  image = serializers.SerializerMethodField()
+
   class Meta:
     model = Image
     fields = ['image', 'date']
+
+  def get_image(self, obj):
+    request = self.context.get('request')
+    photo_url = obj.image.url
+    return request.build_absolute_uri(photo_url)
 
 class ImageDetailSerializerAuth(ImageDetailSerializer):
   """Информация о изображении"""
@@ -79,20 +87,10 @@ class WinnerListSerializer(serializers.ModelSerializer):
     model = Leaderboard
     fields = ['history', 'week', 'main']
 
-
-class ImageCreateSerializer(serializers.ModelSerializer):
-  """Добавление изображений"""
-
-  class Meta:
-    model = Image
-    fields = ['image', 'date']
-
 class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
   """Полная информация о истории"""
-  # images = ImageCreateSerializer(source='image_set', many=True, read_only=True)
-  img_before = ImageCreateSerializer(source='image_set_before', read_only=True)
-  img_after = ImageCreateSerializer(source='image_set_after', read_only=True)
-  # img_index = serializers.IntegerField(read_only=True)
+  img_before = ImageDetailSerializerAuth(source='image_set_before', read_only=True)
+  img_after = ImageDetailSerializerAuth(source='image_set_after', read_only=True)
 
   class Meta:
     model = History
@@ -111,8 +109,6 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
 
   def create(self, validated_data):
 
-    print('create')
-
     history = History.objects.create(
       desc=validated_data.get('desc'),
       draft=bool(validated_data.get('draft')),
@@ -120,25 +116,25 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
       week=get_last_day_week()
     )
 
-    self.save_images(history)
+    self.save_images(history, True)
 
     return history
 
   def update(self, instance, validated_data):
 
-    if instance.desc_status == 'edit':
-      instance.desc = validated_data.get('desc')
-
     if instance.draft:
       instance.draft = bool(validated_data.get('draft'))
 
+    if instance.desc_status == 'edit' or instance.draft:
+      instance.desc = validated_data.get('desc')
+
     instance.save()
 
-    self.save_images(instance)
+    self.save_images(instance, instance.draft)
 
     return instance
 
-  def save_images(self, history):
+  def save_images(self, history, is_draft):
 
     post_data = self.context.get('view').request.POST
     files = self.context.get('view').request.FILES
@@ -149,27 +145,53 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
     img_before = files.get('imageBefore')
     img_after = files.get('imageAfter')
 
+    img_before.name = content_file_name(history, 'before', img_before.name)
+    img_after.name = content_file_name(history, 'after', img_after.name)
+
+    can_update_img_b = True
+    can_update_img_a = True
+    status_before = 'mod'
+    status_after = 'mod'
+
+
     if img_before:
       if history.img_before:
-        history.img_before.delete()
-      history.img_before = Image.objects.create(image=img_before, history=history)
+        if history.img_before.status == 'edit' or is_draft:
+          status_before = history.img_before.status
+          history.img_before.delete()
+        else:
+          can_update_img_b = False
 
-    if year_before and history.img_before:
+      if can_update_img_b:
+        history.img_before = Image.objects.create(
+          image=img_before, history=history, status=status_before
+        )
+        # history.img_before.image = content_file_name(history.img_before, history.img_before.image.url)
+        # history.img_before.save()
+
+    if year_before and history.img_before and can_update_img_b:
       history.img_before.date = year_before
       history.img_before.save()
 
     if img_after:
       if history.img_after:
-        history.img_after.delete()
-      history.img_after = Image.objects.create(image=img_after, history=history)
+        if history.img_after.status == 'edit' or is_draft:
+          status_after = history.img_after.status
+          history.img_after.delete()
+        else:
+          can_update_img_a = False
 
-    if year_after and history.img_after:
+      if can_update_img_a:
+        history.img_after = Image.objects.create(
+          image=img_after, history=history, status=status_after
+        )
+
+    if year_after and history.img_after and can_update_img_a:
       history.img_after.date = year_after
       history.img_after.save()
 
     history.save()
     return history
-
 
 class CreateVoiceSerializer(serializers.ModelSerializer):
   """Добавление голоса к истории пользователем"""

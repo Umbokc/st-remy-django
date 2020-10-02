@@ -60,7 +60,7 @@ class HistoryViewSet(viewsets.ModelViewSet):
     serializer = self.get_serializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     instance = self.perform_create(serializer)
-    instance_serializer = HistoryDetailSerializerAuth(instance)
+    instance_serializer = HistoryDetailSerializerAuth(instance, context={"request": request})
     return Response(instance_serializer.data)
 
   @swagger_auto_schema(operation_description="Обновление истории истории", responses={200: HistoryDetailSerializer()})
@@ -71,7 +71,7 @@ class HistoryViewSet(viewsets.ModelViewSet):
     instance = self.perform_update(serializer)
     print(instance)
 
-    instance_serializer = HistoryDetailSerializerAuth(instance)
+    instance_serializer = HistoryDetailSerializerAuth(instance, context={"request": request})
     return Response(instance_serializer.data)
 
   def get_queryset(self):
