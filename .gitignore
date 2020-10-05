@@ -115,3 +115,6 @@ media/
 # !**/migrations/__init__.py
 
 sftp-config.json
+
+/templates
+/static
