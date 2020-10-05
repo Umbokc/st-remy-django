@@ -60,15 +60,19 @@ class HistoryDetailSerializer(serializers.ModelSerializer):
   img_before = ImageDetailSerializer()
   img_after = ImageDetailSerializer()
   user = serializers.SerializerMethodField(method_name='get_user')
+  voices = serializers.SerializerMethodField()
 
   class Meta:
     model = History
     fields = [
-      'id', 'desc', 'orientation', 'week', 'user', 'img_before', 'img_after',
+      'id', 'desc', 'orientation', 'week', 'user', 'img_before', 'img_after', 'voices'
     ]
 
   def get_user(self, obj):
     return obj.user.profile.get_full_name()
+
+  def get_voices(self, obj):
+    return obj.voices.count()
 
 class HistoryDetailSerializerAuth(HistoryDetailSerializer):
   """Полная информация о истории"""
@@ -89,16 +93,21 @@ class WinnerListSerializer(serializers.ModelSerializer):
 
 class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
   """Полная информация о истории"""
-  img_before = ImageDetailSerializerAuth(source='image_set_before', read_only=True)
-  img_after = ImageDetailSerializerAuth(source='image_set_after', read_only=True)
+  imageBefore = serializers.ImageField(max_length=None, allow_empty_file=False, read_only=True)
+  yearBefore = serializers.IntegerField(min_value=1900, max_value=2999, read_only=True)
+
+  imageAfter = serializers.ImageField(max_length=None, allow_empty_file=False, read_only=True)
+  yearAfter = serializers.IntegerField(min_value=1900, max_value=2999, read_only=True)
 
   class Meta:
     model = History
     fields = (
       'desc',
       'draft',
-      'img_before',
-      'img_after',
+      'imageBefore',
+      'yearBefore',
+      'imageAfter',
+      'yearAfter',
     )
 
   def current_user(self):
@@ -121,12 +130,13 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
     return history
 
   def update(self, instance, validated_data):
-
-    if instance.draft:
-      instance.draft = bool(validated_data.get('draft'))
+    print('update')
 
     if instance.desc_status == 'edit' or instance.draft:
       instance.desc = validated_data.get('desc')
+
+    if instance.draft:
+      instance.draft = bool(validated_data.get('draft'))
 
     instance.save()
 
@@ -145,16 +155,13 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
     img_before = files.get('imageBefore')
     img_after = files.get('imageAfter')
 
-    img_before.name = content_file_name(history, 'before', img_before.name)
-    img_after.name = content_file_name(history, 'after', img_after.name)
-
     can_update_img_b = True
     can_update_img_a = True
     status_before = 'mod'
     status_after = 'mod'
 
-
     if img_before:
+      img_before.name = content_file_name(history, 'before', img_before.name)
       if history.img_before:
         if history.img_before.status == 'edit' or is_draft:
           status_before = history.img_before.status
@@ -174,6 +181,7 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
       history.img_before.save()
 
     if img_after:
+      img_after.name = content_file_name(history, 'after', img_after.name)
       if history.img_after:
         if history.img_after.status == 'edit' or is_draft:
           status_after = history.img_after.status
@@ -204,14 +212,17 @@ class CreateVoiceSerializer(serializers.ModelSerializer):
     user = self.current_user()
     history = validated_data.get('history', None)
 
+
     if history.user == user:
       error = {'message': 'Вы не можете голосовать за свою историю, хоть мы и понимаем, что она вам очень нравится.'}
       raise serializers.ValidationError(error)
 
+
     voice, _ = Voice.objects.get_or_create(
       user=user,
-      history=validated_data.get('history', None),
+      history=history
     )
+
     return voice
 
   def current_user(self):

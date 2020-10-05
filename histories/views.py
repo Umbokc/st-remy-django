@@ -107,6 +107,15 @@ class AddVoiceViewSet(viewsets.ModelViewSet):
   serializer_class = CreateVoiceSerializer
   permission_classes = [permissions.IsAuthenticated]
 
+  @swagger_auto_schema(operation_description="Создание истории", responses={200: HistoryDetailSerializerAuth()})
+  def create(self, request, *args, **kwargs):
+    serializer = self.get_serializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    instance = serializer.save()
+    instance_serializer = HistoryDetailSerializerAuth(instance.history, context={"request": request})
+    return Response(instance_serializer.data)
+
+
 class FeedbackSendView(APIView):
   """Отправка формы обртатной связи"""
 
