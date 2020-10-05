@@ -118,85 +118,77 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
 
   def create(self, validated_data):
 
+    is_draft = bool(validated_data.get('draft'))
     history = History.objects.create(
       desc=validated_data.get('desc'),
-      draft=bool(validated_data.get('draft')),
+      draft=is_draft,
       user=self.current_user(),
       week=get_last_day_week()
     )
 
-    self.save_images(history, True)
+    self.save_images(history, is_draft, is_create=True)
 
     return history
 
   def update(self, instance, validated_data):
     print('update')
 
+    status = instance.desc_status
+
     if instance.desc_status == 'edit' or instance.draft:
       instance.desc = validated_data.get('desc')
+      if not instance.draft:
+        status = 'mod'
 
     if instance.draft:
       instance.draft = bool(validated_data.get('draft'))
+      status = 'edit' if instance.draft else 'mod'
 
+    instance.desc_status = status
     instance.save()
 
     self.save_images(instance, instance.draft)
 
     return instance
 
-  def save_images(self, history, is_draft):
+  def save_image(self, history, type_img, img=None, year=None, is_draft=False, is_create=False):
+    attr_img = 'img_%s' % type_img
+    can_update_img = True
 
+    status = 'edit' if is_draft else 'mod'
+
+    if img:
+      img.name = content_file_name(history, type_img, img.name)
+
+      # update
+      old_img = getattr(history, attr_img)
+      if old_img:
+        if old_img.status == 'edit' or is_draft:
+          old_img.delete()
+        else:
+          can_update_img = False
+
+      if can_update_img:
+        new_img = Image.objects.create(image=img, history=history, status=status)
+        setattr(history, attr_img, new_img)
+
+    curr_img = getattr(history, attr_img)
+    if year and curr_img and can_update_img:
+      curr_img.date = year
+      curr_img.save()
+
+  def save_images(self, history, is_draft, is_create=False):
     post_data = self.context.get('view').request.POST
     files = self.context.get('view').request.FILES
 
-    year_before = post_data.get('yearBefore')
-    year_after = post_data.get('yearAfter')
-
-    img_before = files.get('imageBefore')
-    img_after = files.get('imageAfter')
-
-    can_update_img_b = True
-    can_update_img_a = True
-    status_before = 'mod'
-    status_after = 'mod'
-
-    if img_before:
-      img_before.name = content_file_name(history, 'before', img_before.name)
-      if history.img_before:
-        if history.img_before.status == 'edit' or is_draft:
-          status_before = history.img_before.status
-          history.img_before.delete()
-        else:
-          can_update_img_b = False
-
-      if can_update_img_b:
-        history.img_before = Image.objects.create(
-          image=img_before, history=history, status=status_before
-        )
-        # history.img_before.image = content_file_name(history.img_before, history.img_before.image.url)
-        # history.img_before.save()
-
-    if year_before and history.img_before and can_update_img_b:
-      history.img_before.date = year_before
-      history.img_before.save()
-
-    if img_after:
-      img_after.name = content_file_name(history, 'after', img_after.name)
-      if history.img_after:
-        if history.img_after.status == 'edit' or is_draft:
-          status_after = history.img_after.status
-          history.img_after.delete()
-        else:
-          can_update_img_a = False
-
-      if can_update_img_a:
-        history.img_after = Image.objects.create(
-          image=img_after, history=history, status=status_after
-        )
-
-    if year_after and history.img_after and can_update_img_a:
-      history.img_after.date = year_after
-      history.img_after.save()
+    for type_img in ['before', 'after']:
+      self.save_image(
+        history, type_img,
+        img=files.get('image%s' % type_img.capitalize(), None),
+        year=post_data.get('year%s' % type_img.capitalize(), None),
+        is_draft=is_draft,
+        is_create=is_create
+      )
 
     history.save()
     return history

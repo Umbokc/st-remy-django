@@ -36,7 +36,7 @@ class HistoryAdmin(admin.ModelAdmin):
   list_display = ("id", "desc", "get_user", "status", "get_voices", "get_images")
   list_display_links = ("id", "desc", "get_images")
   list_editable = ("status",)
-  exclude = ('img_before','img_after',)
+  exclude = ('img_before','img_after', 'admin_viewed')
 
   def get_user(self, obj):
     return obj.user.username
@@ -64,6 +64,29 @@ class HistoryAdmin(admin.ModelAdmin):
   get_images.short_description = 'Изображения'
   get_user.short_description = 'Пользователь'
   get_voices.short_description = 'Голосов'
+
+  def save_model(self, request, obj, form, change):
+    new_status = None
+
+    if obj.draft == True:
+      new_status = 'edit'
+
+    if obj.status == 'pub':
+      new_status = 'pub'
+      obj.draft = False
+
+    if new_status != None:
+      obj.desc_status = new_status
+
+      if obj.img_before:
+        obj.img_before.status = new_status
+        obj.img_before.save()
+
+      if obj.img_after:
+        obj.img_after.status = new_status
+        obj.img_after.save()
+
+    obj.save()
 
 @admin.register(Voice)
 class VoiceAdmin(admin.ModelAdmin):
