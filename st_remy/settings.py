@@ -17,22 +17,18 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'nm)l&ela-g-k7kx!8&x4qno_n=7go5=p4tm^s=d_#96es2))v6'
+SECRET_KEY = ''
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
-    # 'the-uweb.ru',
-     '127.0.0.1',
-    'st-remy.django.the-uweb.ru',
+    '127.0.0.1',
 ]
-
 
 # Application definition
 
@@ -90,26 +86,9 @@ WSGI_APPLICATION = 'st_remy.wsgi.application'
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
-
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'st_remy_dj',
-        'USER': 'st_remy_dj',
-        'PASSWORD': 'st_remy_dj',
-        'HOST': '127.0.0.1',
-        'POST': '3306',
-
-        'OPTIONS': {
-            'charset' : 'utf8',
-            'use_unicode' : True,
-            'init_command': 'SET character_set_connection=utf8, collation_connection=utf8_bin'
-        },
-        'TEST_CHARSET': 'utf8',
-        'TEST_COLLATION': 'utf8_general_ci',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -151,11 +130,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 if DEBUG:
-   STATICFILES_DIRS = [
+    STATICFILES_DIRS = [
        os.path.join(BASE_DIR, 'static'),
-   ]
+    ]
 else:
-   STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 STATIC_URL = '/static/'
 
@@ -178,7 +157,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 # smtp
 EMAIL_USE_TLS = True
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST = ''
 EMAIL_HOST_USER = ''
 EMAIL_HOST_PASSWORD = ''
 EMAIL_PORT = 587
