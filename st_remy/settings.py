@@ -162,7 +162,7 @@ EMAIL_HOST_USER = ''
 EMAIL_HOST_PASSWORD = ''
 EMAIL_PORT = 587
 
-ADMIN_EMAIL_FOR_FEEDBACK = 'umbokc@gmail.com'
+ADMIN_EMAIL_FOR_FEEDBACK = ''
 
 DJOSER = {
     'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',

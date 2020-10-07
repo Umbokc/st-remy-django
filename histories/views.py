@@ -17,14 +17,13 @@ from . import service
 
 class IsOwner(permissions.BasePermission):
   def has_object_permission(self, request, view, obj):
-    print('request')
-
     if request.method in permissions.SAFE_METHODS:
       return True
 
     return obj.user == request.user
 
 class MyHistoryViewSet(viewsets.ModelViewSet):
+  """Вывод истории в профиле"""
   serializer_class = HistoryDetailSerializerAuth
   permission_classes = [permissions.IsAuthenticated]
 
@@ -63,14 +62,12 @@ class HistoryViewSet(viewsets.ModelViewSet):
     instance_serializer = HistoryDetailSerializerAuth(instance, context={"request": request})
     return Response(instance_serializer.data)
 
-  @swagger_auto_schema(operation_description="Обновление истории истории", responses={200: HistoryDetailSerializer()})
+  @swagger_auto_schema(operation_description="Обновление истории", responses={200: HistoryDetailSerializer()})
   def update(self, request, pk, *args, **kwargs):
     instance = self.get_object()
     serializer = self.get_serializer(instance, data=request.data)
     serializer.is_valid(raise_exception=True)
     instance = self.perform_update(serializer)
-    print(instance)
-
     instance_serializer = HistoryDetailSerializerAuth(instance, context={"request": request})
     return Response(instance_serializer.data)
 

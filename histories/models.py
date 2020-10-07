@@ -6,6 +6,7 @@ from django.dispatch import receiver
 from enum import Enum
 
 class TimeStampMixin(models.Model):
+  """Абстрактный класс добавляющий всем моделям поля: created_at, updated_at"""
   created_at = models.DateTimeField(auto_now_add=True)
   updated_at = models.DateTimeField(auto_now=True)
 

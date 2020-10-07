@@ -13,28 +13,6 @@ from .service import get_last_day_week, content_file_name
 
 User = get_user_model()
 
-class PrivateField(serializers.ReadOnlyField):
-
-  def current_user(self):
-    request = self.context.get('request', None)
-    if request:
-      return request.user
-    return None
-
-  def get_attribute(self, instance):
-    curr_user = self.current_user()
-    if curr_user:
-      obj_user = None
-      if isinstance(instance, Image):
-        obj_user = instance.history.user
-      else:
-        obj_user = instance.user
-
-      if obj_user == curr_user:
-        return super(PrivateField, self).get_attribute(instance)
-
-    return None
-
 class ImageDetailSerializer(serializers.ModelSerializer):
   """Информация о изображении"""
 
@@ -50,13 +28,13 @@ class ImageDetailSerializer(serializers.ModelSerializer):
     return request.build_absolute_uri(photo_url)
 
 class ImageDetailSerializerAuth(ImageDetailSerializer):
-  """Информация о изображении"""
+  """Информация о изображении для авторизованного пользователя"""
   class Meta:
     model = Image
     fields = ImageDetailSerializer.Meta.fields + ['status', 'comment']
 
 class HistoryDetailSerializer(serializers.ModelSerializer):
-  """Полная информация о истории"""
+  """Информация о истории"""
   img_before = ImageDetailSerializer()
   img_after = ImageDetailSerializer()
   user = serializers.SerializerMethodField(method_name='get_user')
@@ -75,7 +53,7 @@ class HistoryDetailSerializer(serializers.ModelSerializer):
     return obj.voices.count()
 
 class HistoryDetailSerializerAuth(HistoryDetailSerializer):
-  """Полная информация о истории"""
+  """Информация о истории для авторизованного пользователя"""
   img_before = ImageDetailSerializerAuth()
   img_after = ImageDetailSerializerAuth()
   class Meta:
@@ -92,7 +70,7 @@ class WinnerListSerializer(serializers.ModelSerializer):
     fields = ['history', 'week', 'main']
 
 class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
-  """Полная информация о истории"""
+  """Создание и обновление истории"""
   imageBefore = serializers.ImageField(max_length=None, allow_empty_file=False, read_only=True)
   yearBefore = serializers.IntegerField(min_value=1900, max_value=2999, read_only=True)
 
@@ -194,7 +172,7 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
     return history
 
 class CreateVoiceSerializer(serializers.ModelSerializer):
-  """Добавление голоса к истории пользователем"""
+  """Добавление голоса к истории"""
 
   class Meta:
     model = Voice
@@ -259,7 +237,6 @@ class UserCreateSerializer(BaseUserRegistrationSerializer):
     instance = super().save(**kwargs)
     profile.user = instance
     profile.save()
-    # Profile.objects.update_or_create(user=instance, defaults=profile)
     return instance
 
   def validate(self, attrs):

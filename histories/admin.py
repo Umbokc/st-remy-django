@@ -1,10 +1,12 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
+from django.template.defaultfilters import truncatechars
 
 from .models import History, Image, Leaderboard, Voice, Profile
 
 @admin.register(Image)
 class ImageAdmin(admin.ModelAdmin):
+  """Изображения"""
   save_on_top = True
   save_as = True
   list_display = ("id", "history", "get_image", "date", "status", "comment")
@@ -17,7 +19,7 @@ class ImageAdmin(admin.ModelAdmin):
   get_image.short_description = "Изображение"
 
 class ImagesInline(admin.TabularInline):
-  """Изображения"""
+  """Изображения в истории"""
   model = Image
   extra = 0
   max_num = 2
@@ -30,13 +32,18 @@ class ImagesInline(admin.TabularInline):
 
 @admin.register(History)
 class HistoryAdmin(admin.ModelAdmin):
+  """Истории"""
   save_on_top = True
   save_as = True
   inlines = [ImagesInline]
-  list_display = ("id", "desc", "get_user", "status", "get_voices", "get_images")
-  list_display_links = ("id", "desc", "get_images")
+  list_display = ("id", "get_desc", "get_user", "status", "get_voices", "get_images")
+  list_display_links = ("id", "get_desc", "get_images")
   list_editable = ("status",)
   exclude = ('img_before','img_after', 'admin_viewed')
+  list_per_page = 10
+
+  def get_desc(self, obj):
+    return truncatechars(obj.desc, 35)
 
   def get_user(self, obj):
     return obj.user.username
@@ -90,23 +97,27 @@ class HistoryAdmin(admin.ModelAdmin):
 
 @admin.register(Voice)
 class VoiceAdmin(admin.ModelAdmin):
+  """Голоса"""
   save_on_top = True
   save_as = True
 
 @admin.register(Leaderboard)
 class LeaderboardAdmin(admin.ModelAdmin):
+  """Победители"""
   save_on_top = True
   save_as = True
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
+  """Пользователи"""
   save_on_top = True
   save_as = True
   list_display = ("get_user", "get_email", "first_name", "surname", "get_type", "phone", "social_name", "social_id")
-  # readonly_fields = ("get_user",)
+  exclude = ("user",)
+  readonly_fields = ("get_user",)
 
   def get_user(self, obj):
-    return obj.user.username
+    return f'{obj.user.username}'
 
   def get_email(self, obj):
     return obj.user.email
