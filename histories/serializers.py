@@ -95,11 +95,13 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
     return None
 
   def create(self, validated_data):
-
     is_draft = bool(validated_data.get('draft'))
+    desc_status = 'edit' if is_draft else 'mod'
+
     history = History.objects.create(
       desc=validated_data.get('desc'),
       draft=is_draft,
+      desc_status=desc_status,
       user=self.current_user(),
       week=get_last_day_week()
     )
@@ -109,8 +111,6 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
     return history
 
   def update(self, instance, validated_data):
-    print('update')
-
     status = instance.desc_status
 
     if instance.desc_status == 'edit' or instance.draft:
@@ -142,6 +142,9 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
       old_img = getattr(history, attr_img)
       if old_img:
         if old_img.status == 'edit' or is_draft:
+          if year is None:
+            year = old_img.date
+
           old_img.delete()
         else:
           can_update_img = False
@@ -151,8 +154,13 @@ class HistoryCreateSerializer(serializers.HyperlinkedModelSerializer):
         setattr(history, attr_img, new_img)
 
     curr_img = getattr(history, attr_img)
-    if year and curr_img and can_update_img:
-      curr_img.date = year
+    if curr_img:
+      if curr_img.status != status:
+        curr_img.status = status
+
+      if year and can_update_img:
+        curr_img.date = year
+
       curr_img.save()
 
   def save_images(self, history, is_draft, is_create=False):
