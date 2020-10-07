@@ -8,7 +8,7 @@ cd st-remy-django
 
 ## Setup frontend
 
-Before compile, in `frontend/public/index.html` change the `SERVER_BASE` configuration to your backend url.
+Before compile or run, in `frontend/public/index.html` change the `SERVER_BASE` configuration to your backend url.
 
 Then install dependencies:
 ```
@@ -48,7 +48,7 @@ Collect static:
 python manage.py collectstatic
 ```
 
-Run server:
+#### Run server
 
 ```
 python manage.py runserver
